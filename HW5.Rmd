@@ -9,22 +9,19 @@ output:
 knitr::opts_chunk$set(echo = TRUE)
 knitr::opts_chunk$set(message = FALSE)
 knitr::opts_chunk$set(warning = FALSE)
+knitr::opts_chunk$set(tidy = TRUE)
 ```
 
-<style>
-@media print {
-
-  .code {
-    -webkit-print-color-adjust:exact;
-  }
-
-}
-</style>
+<script>
+$('*[media="screen"],*[media="print"]').attr('media', '')
+</script>
 
 # Assignment 5
 ## Statistical Modelling I
-### Clinton B Morris <br> Mauricio Garcia Tec
+### Clinton Morris <br> Mauricio Garcia Tec
 #### October 2017
+
+### Introduction
 
 We load the libraries we will use
 
@@ -35,7 +32,6 @@ library(knitr)
 
 ```{r}
 library(glmnet) # Library for penalized regression models and cross-validation 
-library(caret) # General Purpose Machine Learning Modelling Framework
 library(tidyverse) # Efficient data manipulation and I/O
 library(ggplot2) # A grammar of graphics for plotting
 library(ggthemes) # Improves layout adn colors for ggplot2 graphics
@@ -190,17 +186,29 @@ We add some plots to our analysis to better understand what happened.
 
 It is always good to compare the predicted vs the fitted values. Since Ridge regression was the best in our test, and most models performed the same, we show the plot for the Ridge model only.
 
-```{r, fig.width=7, fig.height = 5, fig.align='center'}
+```{r, fig.width=7, fig.height = 5,fig.align='center'}
 plotdata <- concrete %>%
+  rename(Observed = `Compressive strength`) %>% 
   mutate(Dataset = ifelse(1:nrow(concrete) %in% train_idx, "Train", "Test")) %>% 
   mutate(Predicted = as.numeric(predict(ridge, as.matrix(concrete[ ,-ncol(concrete)]))))
-ggplot(plotdata, aes(x = `Compressive strength`, y = Predicted, colour = Dataset)) + 
-  geom_point(size = 3, alpha = 0.4) +
-  geom_abline(intercept = 0, slope = 1, linetype = "dashed") +
+ggplot(plotdata, aes(x = Observed, y = Predicted, colour = Dataset)) + 
+  geom_point(size = 2, alpha = 0.4) +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed", colour = "darkgray") +
   theme_minimal() +
-  ggtitle("Ridge Regression: Predicted vs Observed")
+  ggtitle("Ridge Regression: Predicted vs Observed Compressive Strength")
 ```
 
-#### (B) Comparing the $\lambda$ in Penalized Regression
+#### (B) Comparing the Mean Squared Errors of Cross Validation
 
-When doing models like Lasso, Ridge and Elastic Nets it is a good practice to see how the coefficients shrink as $\lambda$ varies, as well as to see the different cross-validated errors
+When doing models like Lasso, Ridge and Elastic Nets it is a good practice to see how the coefficients shrink as $\lambda$ varies, as well as to see the different cross-validated errors.
+
+```{r, fig.width=10, fig.height=3, fig.align='center'}
+par(mfrow = c(1,3))
+plot(ridge)
+title("Ridge", line = -1)
+plot(lasso)
+title("Lasso", line = -1)
+plot(enet)
+title("Elastic Net (alpha=0.5)", line = -1)
+```
+

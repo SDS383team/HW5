@@ -1,20 +1,16 @@
 
 
 
-<style>
-@media print {
-
-  .code {
-    -webkit-print-color-adjust:exact;
-  }
-
-}
-</style>
+<script>
+$('*[media="screen"],*[media="print"]').attr('media', '')
+</script>
 
 # Assignment 5
 ## Statistical Modelling I
-### Clinton B Morris <br> Mauricio Garcia Tec
+### Clinton Morris <br> Mauricio Garcia Tec
 #### October 2017
+
+### Introduction
 
 We load the libraries we will use
 
@@ -22,11 +18,10 @@ We load the libraries we will use
 
 
 ```r
-library(glmnet) # Library for penalized regression models and cross-validation 
-library(caret) # General Purpose Machine Learning Modelling Framework
-library(tidyverse) # Efficient data manipulation and I/O
-library(ggplot2) # A grammar of graphics for plotting
-library(ggthemes) # Improves layout adn colors for ggplot2 graphics
+library(glmnet)  # Library for penalized regression models and cross-validation 
+library(tidyverse)  # Efficient data manipulation and I/O
+library(ggplot2)  # A grammar of graphics for plotting
+library(ggthemes)  # Improves layout adn colors for ggplot2 graphics
 ```
 
 ### The Task
@@ -51,22 +46,14 @@ Our **task** is to compare regression models where the response variable is **Co
 To begin, we first create train and test sets splitting the data by half, then construct we define the design matrix $X$ and response vector $y$ for each testing and training sets. The train and test data will be stored in matrix and numeric vector form since the package `glmnet` which we use later need an input of this form.
 
 ```r
-set.seed(999) # for reproducibility
-train_idx <-  sample(1:nrow(concrete), size = nrow(concrete) / 2)
-test_data <- concrete %>% 
-  slice(train_idx)
-train_data <- concrete %>% 
-  slice(-train_idx)
-X_test <- test_data %>% 
-  select(-`Compressive strength`) %>% 
-  data.matrix()
-X_train <- train_data %>% 
-  select(-`Compressive strength`) %>% 
-  data.matrix()
-y_test <- test_data %>% 
-  pull(`Compressive strength`) 
-y_train <- train_data %>% 
-  pull(`Compressive strength`)
+set.seed(999)  # for reproducibility
+train_idx <- sample(1:nrow(concrete), size = nrow(concrete)/2)
+test_data <- concrete %>% slice(train_idx)
+train_data <- concrete %>% slice(-train_idx)
+X_test <- test_data %>% select(-`Compressive strength`) %>% data.matrix()
+X_train <- train_data %>% select(-`Compressive strength`) %>% data.matrix()
+y_test <- test_data %>% pull(`Compressive strength`)
+y_train <- train_data %>% pull(`Compressive strength`)
 ```
 
 ### Running the Models
@@ -96,9 +83,10 @@ folds <- split(sample(size), cut(1:size, breaks = nfolds, labels = FALSE))
 # Perform 10 fold cross validation
 rmse_cv_mlr_k <- numeric(nfolds)
 for (k in 1:nfolds) {
-  idx <- folds[[k]]
-  mod <- lm(`Compressive strength` ~ ., data = train_data[-idx, ])
-  rmse_cv_mlr_k[k] <- sqrt(mean((y_train[idx] - predict(mod, train_data[idx, ]))^2))
+    idx <- folds[[k]]
+    mod <- lm(`Compressive strength` ~ ., data = train_data[-idx, ])
+    rmse_cv_mlr_k[k] <- sqrt(mean((y_train[idx] - predict(mod, train_data[idx, 
+        ]))^2))
 }
 rmse_cv_mlr <- mean(rmse_cv_mlr_k)
 ```
@@ -109,8 +97,8 @@ We will now choose the best model using the Bayesian Information Criterion. The 
 
 
 ```r
-bicmlr <- lm(`Compressive strength` ~ ., data = train_data) %>% 
-  step(k = log(nrow(train_data)), trace = FALSE)
+bicmlr <- lm(`Compressive strength` ~ ., data = train_data) %>% step(k = log(nrow(train_data)), 
+    trace = FALSE)
 rmse_train_bicmlr <- sqrt(mean((y_train - predict(bicmlr, train_data))^2))
 rmse_test_bicmlr <- sqrt(mean((y_test - predict(bicmlr, test_data))^2))
 ```
@@ -121,12 +109,13 @@ We now repeat the cross validation on the same sets as before
 ```r
 rmse_cv_bicmlr_k <- numeric(nfolds)
 for (k in 1:10) {
-  idx <- folds[[k]]
-  mod <- lm(`Compressive strength` ~ ., data = train_data[-idx, ]) %>% 
-    step(k = log(nrow(train_data) - length(idx)), trace = FALSE)
-  rmse_cv_bicmlr_k[k] <- sqrt(mean((y_train[idx] - predict(mod, train_data[idx, ]))^2))
+    idx <- folds[[k]]
+    mod <- lm(`Compressive strength` ~ ., data = train_data[-idx, ]) %>% step(k = log(nrow(train_data) - 
+        length(idx)), trace = FALSE)
+    rmse_cv_bicmlr_k[k] <- sqrt(mean((y_train[idx] - predict(mod, train_data[idx, 
+        ]))^2))
 }
-rmse_cv_bicmlr <-  mean(rmse_cv_bicmlr_k)
+rmse_cv_bicmlr <- mean(rmse_cv_bicmlr_k)
 ```
 
 #### (3) Lasso 
@@ -190,18 +179,30 @@ It is always good to compare the predicted vs the fitted values. Since Ridge reg
 
 
 ```r
-plotdata <- concrete %>%
-  mutate(Dataset = ifelse(1:nrow(concrete) %in% train_idx, "Train", "Test")) %>% 
-  mutate(Predicted = as.numeric(predict(ridge, as.matrix(concrete[ ,-ncol(concrete)]))))
-ggplot(plotdata, aes(x = `Compressive strength`, y = Predicted, colour = Dataset)) + 
-  geom_point(size = 3, alpha = 0.4) +
-  geom_abline(intercept = 0, slope = 1, linetype = "dashed") +
-  theme_minimal() +
-  ggtitle("Ridge Regression: Predicted vs Observed")
+plotdata <- concrete %>% rename(Observed = `Compressive strength`) %>% mutate(Dataset = ifelse(1:nrow(concrete) %in% 
+    train_idx, "Train", "Test")) %>% mutate(Predicted = as.numeric(predict(ridge, 
+    as.matrix(concrete[, -ncol(concrete)]))))
+ggplot(plotdata, aes(x = Observed, y = Predicted, colour = Dataset)) + geom_point(size = 2, 
+    alpha = 0.4) + geom_abline(intercept = 0, slope = 1, linetype = "dashed", 
+    colour = "darkgray") + theme_minimal() + ggtitle("Ridge Regression: Predicted vs Observed Compressive Strength")
 ```
 
 <img src="HW5_files/figure-html/unnamed-chunk-14-1.png" style="display: block; margin: auto;" />
 
-#### (B) Comparing the $\lambda$ in Penalized Regression
+#### (B) Comparing the Mean Squared Errors of Cross Validation
 
-When doing models like Lasso, Ridge and Elastic Nets it is a good practice to see how the coefficients shrink as $\lambda$ varies, as well as to see the different cross-validated errors
+When doing models like Lasso, Ridge and Elastic Nets it is a good practice to see how the coefficients shrink as $\lambda$ varies, as well as to see the different cross-validated errors.
+
+
+```r
+par(mfrow = c(1, 3))
+plot(ridge)
+title("Ridge", line = -1)
+plot(lasso)
+title("Lasso", line = -1)
+plot(enet)
+title("Elastic Net (alpha=0.5)", line = -1)
+```
+
+<img src="HW5_files/figure-html/unnamed-chunk-15-1.png" style="display: block; margin: auto;" />
+
