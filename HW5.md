@@ -1,9 +1,6 @@
 
 
 
-<script>
-$('*[media="screen"],*[media="print"]').attr('media', '')
-</script>
 
 # Assignment 5
 ## Statistical Modelling I
@@ -12,19 +9,24 @@ $('*[media="screen"],*[media="print"]').attr('media', '')
 
 ### Introduction
 
-We load the libraries we will use
+This is our report for the assignment 5 of Statistical Modelling I. The online version of this documents can be found at [https://sds383team.github.io/HW5/HW5.html](https://sds383team.github.io/HW5/HW5.html).
+
+We run five different regression models for the [Concrete Compressive Strength Data](https://archive.ics.uci.edu/ml/datasets/Concrete+Compressive+Strength) of the UCI machine learning repository. After running the models we present a comparison table. All of them perform roughly the same, Ridge being the best, but with a very small margin.
+
+These are the R libraries we will use:
 
 
 
 
 ```r
-library(glmnet)  # Library for penalized regression models and cross-validation 
-library(tidyverse)  # Efficient data manipulation and I/O
-library(ggplot2)  # A grammar of graphics for plotting
-library(ggthemes)  # Improves layout adn colors for ggplot2 graphics
+library(glmnet) # Library for penalized regression models and cross-validation 
+library(tidyverse) # Efficient data manipulation and I/O
+library(ggplot2) # A grammar of graphics for plotting
+library(ggthemes) # Improves layout adn colors for ggplot2 graphics
 ```
 
 ### The Task
+
 We obtain the data
 
 ```r
@@ -43,17 +45,26 @@ Here is how the first rows look like:
 
 Our **task** is to compare regression models where the response variable is **Compressive strength** and the rest are used as predictors. 
 
-To begin, we first create train and test sets splitting the data by half, then construct we define the design matrix $X$ and response vector $y$ for each testing and training sets. The train and test data will be stored in matrix and numeric vector form since the package `glmnet` which we use later need an input of this form.
+To begin, we first create train and test sets splitting the data by half; then  we define the design matrix $X$ and response vector $y$ of the testing and training sets. The train and test data will be stored in matrix and numeric vector form since the package `glmnet` which we use later needs it.
+
 
 ```r
-set.seed(999)  # for reproducibility
-train_idx <- sample(1:nrow(concrete), size = nrow(concrete)/2)
-test_data <- concrete %>% slice(train_idx)
-train_data <- concrete %>% slice(-train_idx)
-X_test <- test_data %>% select(-`Compressive strength`) %>% data.matrix()
-X_train <- train_data %>% select(-`Compressive strength`) %>% data.matrix()
-y_test <- test_data %>% pull(`Compressive strength`)
-y_train <- train_data %>% pull(`Compressive strength`)
+set.seed(999) # for reproducibility
+train_idx <-  sample(1:nrow(concrete), size = nrow(concrete) / 2)
+test_data <- concrete %>% 
+  slice(train_idx)
+train_data <- concrete %>% 
+  slice(-train_idx)
+X_test <- test_data %>% 
+  select(-`Compressive strength`) %>% 
+  data.matrix()
+X_train <- train_data %>% 
+  select(-`Compressive strength`) %>% 
+  data.matrix()
+y_test <- test_data %>% 
+  pull(`Compressive strength`) 
+y_train <- train_data %>% 
+  pull(`Compressive strength`)
 ```
 
 ### Running the Models
@@ -62,7 +73,7 @@ Below are the commands to compute five different regression models and estimate 
 
 #### (1) Multiple Linear Regression
 
-We run and save the RMSE for linear regression on the full training with all the variables using `lm.fit`--which is the core of the base `lm`.
+We run and save the RMSE for linear regression on the full training with all the variables using R's function `lm`.
 
 
 ```r
@@ -83,22 +94,22 @@ folds <- split(sample(size), cut(1:size, breaks = nfolds, labels = FALSE))
 # Perform 10 fold cross validation
 rmse_cv_mlr_k <- numeric(nfolds)
 for (k in 1:nfolds) {
-    idx <- folds[[k]]
-    mod <- lm(`Compressive strength` ~ ., data = train_data[-idx, ])
-    rmse_cv_mlr_k[k] <- sqrt(mean((y_train[idx] - predict(mod, train_data[idx, 
-        ]))^2))
+  idx <- folds[[k]]
+  mod <- lm(`Compressive strength` ~ ., data = train_data[-idx, ])
+  rmse_cv_mlr_k[k] <- sqrt(mean((y_train[idx] - predict(mod, train_data[idx, ]))^2))
 }
 rmse_cv_mlr <- mean(rmse_cv_mlr_k)
 ```
+The RMSE for each cross-fold is shown at the appendix. 
 
 #### (2) Multiple Linear Regression & Model Selection with BIC
 
-We will now choose the best model using the Bayesian Information Criterion. The BIC is a function that penalizes each free variable, selecting the one that best minimizes $p\log(n) - 2\log(\hat{L})$ where $n$ is the number of observations on the dataset. The functionality of model selection using BIC in R is given by the function `step` with the option `k = log(n)`. In addition we set `trace FALSE` to avoid verbose printing. The output input of `step` is our linear model and the output is another linear model that contains the selected variables only.
+We will now choose the best model using the Bayesian Information Criterion. The BIC is a function that penalizes each free variable, selecting the one that best minimizes $p\log(n) - 2\log(\hat{L})$ where $n$ is the number of observations on the dataset and $p$ the number of variables. The functionality of model selection using BIC in R is given by the function `step` with the option `k = log(n)`. In addition we set `trace FALSE` to avoid verbose printing. The output input of `step` is our linear model and the output is another linear model that contains the selected variables only.
 
 
 ```r
-bicmlr <- lm(`Compressive strength` ~ ., data = train_data) %>% step(k = log(nrow(train_data)), 
-    trace = FALSE)
+bicmlr <- lm(`Compressive strength` ~ ., data = train_data) %>% 
+  step(k = log(nrow(train_data)), trace = FALSE)
 rmse_train_bicmlr <- sqrt(mean((y_train - predict(bicmlr, train_data))^2))
 rmse_test_bicmlr <- sqrt(mean((y_test - predict(bicmlr, test_data))^2))
 ```
@@ -108,15 +119,18 @@ We now repeat the cross validation on the same sets as before
 
 ```r
 rmse_cv_bicmlr_k <- numeric(nfolds)
+nvariables_bic <- numeric(nfolds) # used in appendix
 for (k in 1:10) {
-    idx <- folds[[k]]
-    mod <- lm(`Compressive strength` ~ ., data = train_data[-idx, ]) %>% step(k = log(nrow(train_data) - 
-        length(idx)), trace = FALSE)
-    rmse_cv_bicmlr_k[k] <- sqrt(mean((y_train[idx] - predict(mod, train_data[idx, 
-        ]))^2))
+  idx <- folds[[k]]
+  mod <- lm(`Compressive strength` ~ ., data = train_data[-idx, ]) %>% 
+    step(k = log(nrow(train_data) - length(idx)), trace = FALSE)
+  rmse_cv_bicmlr_k[k] <- sqrt(mean((y_train[idx] - predict(mod, train_data[idx, ]))^2))
+  nvariables_bic[k] <- length(mod$coefficients)
 }
-rmse_cv_bicmlr <- mean(rmse_cv_bicmlr_k)
+rmse_cv_bicmlr <-  mean(rmse_cv_bicmlr_k)
 ```
+
+Again, plots and values of the quality of the model are shown in the appendix and the comparison table after running every model.
 
 #### (3) Lasso 
 
@@ -129,6 +143,8 @@ rmse_cv_lasso <- sqrt(min(lasso$cvm))
 rmse_train_lasso <- sqrt(mean((predict(lasso, X_train, s = "lambda.min") - y_train)^2))
 rmse_test_lasso <- sqrt(mean((predict(lasso, X_test, s = "lambda.min") - y_test)^2))
 ```
+
+The MSE for different values of $\lambda$ and the optimal values are in the appendix.
 
 #### (4) Ridge 
 
@@ -167,35 +183,69 @@ Lasso                     10.3466    10.5932      10.5206
 Ridge                     10.4959    10.6980      10.4797 
 Elastic Net (alpha=0.5)   10.3467    10.5641      10.5205 
 
-From the table we see most models performed equally well on the test set. This is not often the case, but it is plausible since we don't have a large number of variables, which is the scenario where penalized models usually perform better. In the table it is shown that Ridge is the best performer, but after trying different random seed is the way we splitted the data, we saw that this is not always the case; sometimes even Multiple Linear Regression can be the best one.
 
-### Appendix: Plots
+In the table above it is shown that Ridge is the best performer, but after trying different random seed is the way we splitted the data, we saw that this is not always the case; sometimes even Multiple Linear Regression can be the best one.
 
-We add some plots to our analysis to better understand what happened.
+### Appendix
 
-#### (A) Quality of Fit
+We add some plots and information to our analysis to better understand what happened.
+
+#### (A) Quality of Fit: Observed vs Fitted
 
 It is always good to compare the predicted vs the fitted values. Since Ridge regression was the best in our test, and most models performed the same, we show the plot for the Ridge model only.
 
 
 ```r
-plotdata <- concrete %>% rename(Observed = `Compressive strength`) %>% mutate(Dataset = ifelse(1:nrow(concrete) %in% 
-    train_idx, "Train", "Test")) %>% mutate(Predicted = as.numeric(predict(ridge, 
-    as.matrix(concrete[, -ncol(concrete)]))))
-ggplot(plotdata, aes(x = Observed, y = Predicted, colour = Dataset)) + geom_point(size = 2, 
-    alpha = 0.4) + geom_abline(intercept = 0, slope = 1, linetype = "dashed", 
-    colour = "darkgray") + theme_minimal() + ggtitle("Ridge Regression: Predicted vs Observed Compressive Strength")
+plotdata <- concrete %>%
+  rename(Observed = `Compressive strength`) %>% 
+  mutate(Dataset = ifelse(1:nrow(concrete) %in% train_idx, "Train", "Test")) %>% 
+  mutate(Predicted = as.numeric(predict(ridge, as.matrix(concrete[ ,-ncol(concrete)]))))
+ggplot(plotdata, aes(x = Observed, y = Predicted, colour = Dataset)) + 
+  geom_point(size = 2, alpha = 0.4) +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed", colour = "darkgray") +
+  theme_minimal() +
+  ggtitle("Ridge Regression: Predicted vs Observed Compressive Strength")
 ```
 
 <img src="HW5_files/figure-html/unnamed-chunk-14-1.png" style="display: block; margin: auto;" />
 
-#### (B) Comparing the Mean Squared Errors of Cross Validation
+#### (B) RMSE & Number of Variables in MLR with BIC Model Section
 
-When doing models like Lasso, Ridge and Elastic Nets it is a good practice to see how the coefficients shrink as $\lambda$ varies, as well as to see the different cross-validated errors.
+We first print the number of selected variables that the BIC selected for each of the k-folds in cross validation,
 
 
 ```r
-par(mfrow = c(1, 3))
+print(nvariables_bic)
+```
+
+```
+##  [1] 6 6 6 6 6 6 6 6 8 7
+```
+
+The next plot compares the RMSE in each cross-validation fold with and without the Model Selection. We do not see any improvement from the BIC step.
+
+
+```r
+plotdata <- data.frame(
+  RMSE = c(rmse_cv_mlr_k, rmse_cv_bicmlr_k),
+  Model = c(rep("MLR", nfolds), rep("MLR with BIC", nfolds)),
+  Fold = factor(rep(1:nfolds, 2))
+)
+ggplot(plotdata, aes(x = Fold, y = RMSE, fill = Model)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme_minimal() +
+  ggtitle("MLR vs MLR wit BIC Model Selection")
+```
+
+![](HW5_files/figure-html/unnamed-chunk-16-1.png)<!-- -->
+
+#### (C) Comparing the MSE of Penalized Models and optimal lambdas
+
+For the penalized models we are actually using the cross-validation step to fine the best penalization parameter $\lambda$. The following plots show the MSE (no the RMSE but it's a monotone transform) for different values of $\lambda$. The plot shows also error bars for the MSE.
+
+
+```r
+par(mfrow = c(1,3))
 plot(ridge)
 title("Ridge", line = -1)
 plot(lasso)
@@ -204,5 +254,14 @@ plot(enet)
 title("Elastic Net (alpha=0.5)", line = -1)
 ```
 
-<img src="HW5_files/figure-html/unnamed-chunk-15-1.png" style="display: block; margin: auto;" />
+<img src="HW5_files/figure-html/unnamed-chunk-17-1.png" style="display: block; margin: auto;" />
+
+The following table compares the optimal values of the penalization for each model.
+
+
+Model                         Lambda
+------------------------  ----------
+Lasso                      0.0090668
+Ridge                      0.9722062
+Elastic Net (alpha=0.5)    0.0137174
 
