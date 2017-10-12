@@ -1,0 +1,21 @@
+---
+output: 
+  html_document:
+   theme: journal
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Assignment 5
+## Statistical Modelling I
+### Clinton B Morris <br> Mauricio Garcia Tec
+#### October 2017
+
+### The Data
+```{r}
+library(tidyverse) 
+concrete_data <- read_csv("https://github.com/SDS383team/ExampleData/Concrete.csv")
+```
+
