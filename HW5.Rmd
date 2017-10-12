@@ -6,6 +6,8 @@ output:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(message = FALSE)
+knitr::opts_chunk$set(warning = FALSE)
 ```
 
 # Assignment 5
@@ -13,9 +15,57 @@ knitr::opts_chunk$set(echo = TRUE)
 ### Clinton B Morris <br> Mauricio Garcia Tec
 #### October 2017
 
-### The Data
+We load the libraries we will use
+
+```{r, echo=FALSE}
+# These are hidden libraries for the document
+library(knitr)
+```
+
 ```{r}
-library(tidyverse) 
-concrete_data <- read_csv("https://github.com/SDS383team/ExampleData/Concrete.csv")
+library(glmnet) # Library for penalized regression models and cross-validation 
+library(tidyverse) # Efficient data manipulation and I/O
+library(ggplot2) # A grammar of graphics for plotting
+library(ggthemes) # Improves layout adn colors for ggplot2 graphics
+```
+
+### The Task
+We obtain the data
+```{r}
+concrete <- read_csv("https://raw.githubusercontent.com/SDS383team/HW5/master/data/Concrete.csv")
+```
+
+Here is how the first rows look like:
+```{r, echo=FALSE}
+kable(head(concrete, 5))
+```
+
+Our **task** is to compare regression models where the response variable is `Concrete compressive strength` and the rest are used as predictors. 
+
+To begin, we first create train and test sets splitting the data by half, then construct we define the design matrix $X$ and response vector $y$ for each testing and training sets. The train and test data will be stored in matrix and numeric vector form since the package `glmnet` which we use later need an input of this form.
+```{r}
+set.seed(110104) # for reproducibility
+train_idx <-  sample(1:nrow(concrete), size = nrow(concrete) / 2)
+test_data <- concrete %>% 
+  slice(train_idx)
+train_data <- concrete %>% 
+  slice(-train_idx)
+X_test <- test_data %>% 
+  select(-`Concrete compressive strength`) %>% 
+  data.matrix()
+X_train <- train_data %>% 
+  select(-`Concrete compressive strength`) %>% 
+  data.matrix()
+y_test <- test_data %>% 
+  pull(`Concrete compressive strength`) 
+y_train <- train_data %>% 
+  pull(`Concrete compressive strength`)
+```
+
+### (1) Multiple Linear Regression
+We run and save the MSE for linear regression on the full training with all the variables using `lm.fit`--which is the core of the base `lm`.
+```{r}
+mod11 <- lm.fit(X_train, y_train)
+mse11 <- mean((y_test - predict(mod11, X_test))^ 2)
 ```
 

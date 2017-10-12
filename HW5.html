@@ -127,10 +127,112 @@ $(document).ready(function () {
 <h3>Clinton B Morris <br> Mauricio Garcia Tec</h3>
 <div id="october-2017" class="section level4">
 <h4>October 2017</h4>
+<p>We load the libraries we will use</p>
+<pre class="r"><code>library(glmnet) # Main library to do regression models and cross-validation easily
+library(tidyverse) # Efficient data manipulation and I/O
+library(ggplot2) # A grammar of graphics for plotting
+library(ggthemes) # Improves layout adn colors for ggplot2 graphics</code></pre>
 </div>
 </div>
-<div id="the-data" class="section level3">
-<h3>The Data</h3>
+<div id="the-task" class="section level3">
+<h3>The Task</h3>
+<p>We obtain the data</p>
+<pre class="r"><code>concrete &lt;- read_csv(&quot;https://raw.githubusercontent.com/SDS383team/HW5/master/data/Concrete.csv&quot;)</code></pre>
+<p>Here is how the first rows look like:</p>
+<table>
+<thead>
+<tr class="header">
+<th align="right">Cement</th>
+<th align="right">Blast Furnace Slag</th>
+<th align="right">Fly Ash</th>
+<th align="right">Water</th>
+<th align="right">Superplasticizer</th>
+<th align="right">Coarse Aggregate</th>
+<th align="right">Fine Aggregate</th>
+<th align="right">Age</th>
+<th align="right">Concrete compressive strength</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="right">540.0</td>
+<td align="right">0.0</td>
+<td align="right">0</td>
+<td align="right">162</td>
+<td align="right">2.5</td>
+<td align="right">1040.0</td>
+<td align="right">676.0</td>
+<td align="right">28</td>
+<td align="right">79.99</td>
+</tr>
+<tr class="even">
+<td align="right">540.0</td>
+<td align="right">0.0</td>
+<td align="right">0</td>
+<td align="right">162</td>
+<td align="right">2.5</td>
+<td align="right">1055.0</td>
+<td align="right">676.0</td>
+<td align="right">28</td>
+<td align="right">61.89</td>
+</tr>
+<tr class="odd">
+<td align="right">332.5</td>
+<td align="right">142.5</td>
+<td align="right">0</td>
+<td align="right">228</td>
+<td align="right">0.0</td>
+<td align="right">932.0</td>
+<td align="right">594.0</td>
+<td align="right">270</td>
+<td align="right">40.27</td>
+</tr>
+<tr class="even">
+<td align="right">332.5</td>
+<td align="right">142.5</td>
+<td align="right">0</td>
+<td align="right">228</td>
+<td align="right">0.0</td>
+<td align="right">932.0</td>
+<td align="right">594.0</td>
+<td align="right">365</td>
+<td align="right">41.05</td>
+</tr>
+<tr class="odd">
+<td align="right">198.6</td>
+<td align="right">132.4</td>
+<td align="right">0</td>
+<td align="right">192</td>
+<td align="right">0.0</td>
+<td align="right">978.4</td>
+<td align="right">825.5</td>
+<td align="right">360</td>
+<td align="right">44.30</td>
+</tr>
+</tbody>
+</table>
+<p>Our <strong>task</strong> is to compare regression models where the response variable is <code>Concrete compressive strength</code> and the rest are used as predictors.</p>
+<p>To begin, we first create train and test sets splitting the data by half, then construct we define the design matrix <span class="math inline">\(X\)</span> and response vector <span class="math inline">\(y\)</span> for each testing and training sets. The train and test data will be stored in matrix and numeric vector form since the package <code>glmnet</code> which we use later need an input of this form.</p>
+<pre class="r"><code>set.seed(110104) # for reproducibility
+train_rows &lt;-  sample(1:nrow(concrete), size = nrow(concrete) / 2)
+test_data &lt;- concrete %&gt;% 
+  slice(train_rows)
+train_data &lt;- concrete %&gt;% 
+  slice(-train_rows)
+X_test &lt;- test_data %&gt;% 
+  select(-`Concrete compressive strength`) %&gt;% 
+  data.matrix()
+X_train &lt;- train_data %&gt;% 
+  select(-`Concrete compressive strength`) %&gt;% 
+  data.matrix()
+y_test &lt;- test_data %&gt;% 
+  pull(`Concrete compressive strength`) 
+y_train &lt;- train_data %&gt;% 
+  pull(`Concrete compressive strength`)</code></pre>
+</div>
+<div id="multiple-linear-regression" class="section level3">
+<h3>(1) Multiple Linear Regression</h3>
+<p>We run linear regression on the full training with all the variables and</p>
 </div>
 </div>
 </div>
