@@ -62,10 +62,105 @@ y_train <- train_data %>%
   pull(`Concrete compressive strength`)
 ```
 
-### (1) Multiple Linear Regression
+### Running the Models
+
+Below are the commands to compute five different regression models and estimate their generalization errors.
+
+#### (1) Multiple Linear Regression
 We run and save the MSE for linear regression on the full training with all the variables using `lm.fit`--which is the core of the base `lm`.
 ```{r}
-mod11 <- lm.fit(X_train, y_train)
-mse11 <- mean((y_test - predict(mod11, X_test))^ 2)
+ols <- lm(`Concrete compressive strength` ~ ., data = train_data)
+rmsetrain_ols <- sqrt(mean((y_train - predict(ols, train_data))^2))
+rmsetest_ols <- sqrt(mean((y_test - predict(ols, test_data))^2))
 ```
+We now repeat the same but with 10-fold cross validation. The average mse is stored in `mse1_cv`. 
+```{r}
+# Number of folds
+nfolds <- 10
+n <- nrow(train_data)
+# Create 10 equal size folds as a list of validation indexes
+folds <- split(1:n, cut(1:n, breaks = nfolds, labels = FALSE))
+# Perform 10 fold cross validation
+mse_ols_cv <- numeric(nfolds)
+for (k in 1:10) {
+  idx <- folds[[k]]
+  mod <- lm(`Concrete compressive strength` ~ ., data = train_data[-idx, ])
+  mse_ols_cv[k] <- mean((y_train[idx] - predict(mod, train_data[idx, ]))^2)
+}
+```
+
+#### (2) Multiple Linear Regression & Model Selection with BIC
+
+The functionality of model selection using BIC in R is given by the function `step` with the option `k = log(n)` (using `k = 2` gives AIC).
+```{r}
+olsBIC <- lm(`Concrete compressive strength` ~ ., data = train_data) %>% 
+  step(k = log(n), trace = FALSE)
+rmsetrain_olsBIC <- sqrt(mean((y_train - predict(olsBIC, train_data))^2))
+rmsetest_olsBIC <- sqrt(mean((y_test - predict(olsBIC, test_data))^2))
+```
+Now with k-fold cross validation
+```{r}
+# Number of folds
+nfolds <- 10
+n <- nrow(train_data)
+# Create 10 equal size folds as a list of validation indexes
+folds <- split(1:n, cut(1:n, breaks = nfolds, labels = FALSE))
+# Perform 10 fold cross validation
+rmse_olsBIC_cv <- numeric(nfolds)
+for (k in 1:10) {
+  idx <- folds[[k]]
+  mod <- lm(`Concrete compressive strength` ~ ., data = train_data[-idx, ]) %>% 
+    step(k = log(n), trace = FALSE)
+  rmse_olsBIC_cv[k] <- sqrt(mean((y_train[idx] - predict(mod, train_data[idx, ]))^2))
+}
+```
+
+#### (3) Lasso 
+
+We use the `glm` package now, it has an elastic mixing input `alpha`, which does the lasso regression when set to `alpha = 1`.
+```{r}
+lasso = cv.glmnet(X_train, y_train, alpha = 1, type.measure = "mse", nfolds = 10)
+rmsetrain_lasso <- sqrt(mean((predict(lasso, X_train, s = "lambda.min") - y_train)^2))
+rmsetest_lasso <- sqrt(mean((predict(lasso, X_test, s = "lambda.min") - y_test)^2))
+```
+
+#### (4) Ridge 
+
+Setting `alpha = 0` the `glmnet` regression yields Ridge.
+
+```{r}
+ridge = cv.glmnet(X_train, y_train, alpha = 0, type.measure = "mse", nfolds = 10)
+rmsetrain_ridge <- sqrt(mean((predict(ridge, X_train, s = "lambda.min") - y_train)^2))
+rmsetest_ridge <- sqrt(mean((predict(ridge, X_test, s = "lambda.min") - y_test)^2))
+```
+
+#### (5) Elastic net 
+
+An elastic net interpolates the lasso and ridge regularization. By setting `alpha = 0.5` in the `cv.glmnet` function we compute an elastic net.
+
+```{r}
+enet = cv.glmnet(X_train, y_train, alpha = 0.5, type.measure = "mse", nfolds = 10)
+rmsetrain_enet <- sqrt(mean((predict(enet, X_train, s = "lambda.min") - y_train)^2))
+rmsetest_enet <- sqrt(mean((predict(enet, X_test, s = "lambda.min") - y_test)^2))
+```
+
+### Comparison
+
+Here is a table with the performance of each model using the Root MSE.
+
+```{r, echo=FALSE}
+tbl <- data.frame(
+  Model = c("MLR", "MLR with BIC", "Lasso", "Ridge", "ElasticNet(0.5)"),
+  `Training` = c(rmsetrain_ols, rmsetrain_olsBIC, NA, NA, NA),
+  `10-Fold CV` = c(NA, NA, rmsetrain_lasso, rmsetrain_ridge, rmsetrain_enet),
+  `Test` = c(rmsetest_ols, rmsetest_olsBIC, rmsetest_lasso, rmsetest_ridge, rmsetest_enet),
+  check.names = FALSE
+)
+tbl_formatted <- tbl
+tbl_formatted[ ,-1] <- apply(tbl[ ,-1], c(1, 2), function(x) {
+  ifelse(is.na(x), "-", sprintf("%0.4f", x))
+})
+kable(tbl_formatted)
+```
+
 

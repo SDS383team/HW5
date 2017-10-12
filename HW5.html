@@ -128,7 +128,7 @@ $(document).ready(function () {
 <div id="october-2017" class="section level4">
 <h4>October 2017</h4>
 <p>We load the libraries we will use</p>
-<pre class="r"><code>library(glmnet) # Main library to do regression models and cross-validation easily
+<pre class="r"><code>library(glmnet) # Library for penalized regression models and cross-validation 
 library(tidyverse) # Efficient data manipulation and I/O
 library(ggplot2) # A grammar of graphics for plotting
 library(ggthemes) # Improves layout adn colors for ggplot2 graphics</code></pre>
@@ -214,11 +214,11 @@ library(ggthemes) # Improves layout adn colors for ggplot2 graphics</code></pre>
 <p>Our <strong>task</strong> is to compare regression models where the response variable is <code>Concrete compressive strength</code> and the rest are used as predictors.</p>
 <p>To begin, we first create train and test sets splitting the data by half, then construct we define the design matrix <span class="math inline">\(X\)</span> and response vector <span class="math inline">\(y\)</span> for each testing and training sets. The train and test data will be stored in matrix and numeric vector form since the package <code>glmnet</code> which we use later need an input of this form.</p>
 <pre class="r"><code>set.seed(110104) # for reproducibility
-train_rows &lt;-  sample(1:nrow(concrete), size = nrow(concrete) / 2)
+train_idx &lt;-  sample(1:nrow(concrete), size = nrow(concrete) / 2)
 test_data &lt;- concrete %&gt;% 
-  slice(train_rows)
+  slice(train_idx)
 train_data &lt;- concrete %&gt;% 
-  slice(-train_rows)
+  slice(-train_idx)
 X_test &lt;- test_data %&gt;% 
   select(-`Concrete compressive strength`) %&gt;% 
   data.matrix()
@@ -230,9 +230,118 @@ y_test &lt;- test_data %&gt;%
 y_train &lt;- train_data %&gt;% 
   pull(`Concrete compressive strength`)</code></pre>
 </div>
-<div id="multiple-linear-regression" class="section level3">
-<h3>(1) Multiple Linear Regression</h3>
-<p>We run linear regression on the full training with all the variables and</p>
+<div id="running-the-models" class="section level3">
+<h3>Running the Models</h3>
+<p>Below are the commands to compute five different regression models and estimate their generalization errors.</p>
+<div id="multiple-linear-regression" class="section level4">
+<h4>(1) Multiple Linear Regression</h4>
+<p>We run and save the MSE for linear regression on the full training with all the variables using <code>lm.fit</code>–which is the core of the base <code>lm</code>.</p>
+<pre class="r"><code>ols &lt;- lm(`Concrete compressive strength` ~ ., data = train_data)
+rmsetrain_ols &lt;- sqrt(mean((y_train - predict(ols, train_data))^2))
+rmsetest_ols &lt;- sqrt(mean((y_test - predict(ols, test_data))^2))</code></pre>
+<p>We now repeat the same but with 10-fold cross validation. The average mse is stored in <code>mse1_cv</code>.</p>
+<pre class="r"><code># Number of folds
+nfolds &lt;- 10
+n &lt;- nrow(train_data)
+# Create 10 equal size folds as a list of validation indexes
+folds &lt;- split(1:n, cut(1:n, breaks = nfolds, labels = FALSE))
+# Perform 10 fold cross validation
+mse_ols_cv &lt;- numeric(nfolds)
+for (k in 1:10) {
+  idx &lt;- folds[[k]]
+  mod &lt;- lm(`Concrete compressive strength` ~ ., data = train_data[-idx, ])
+  mse_ols_cv[k] &lt;- mean((y_train[idx] - predict(mod, train_data[idx, ]))^2)
+}</code></pre>
+</div>
+<div id="multiple-linear-regression-model-selection-with-bic" class="section level4">
+<h4>(2) Multiple Linear Regression &amp; Model Selection with BIC</h4>
+<p>The functionality of model selection using BIC in R is given by the function <code>step</code> with the option <code>k = log(n)</code> (using <code>k = 2</code> gives AIC).</p>
+<pre class="r"><code>olsBIC &lt;- lm(`Concrete compressive strength` ~ ., data = train_data) %&gt;% 
+  step(k = log(n), trace = FALSE)
+rmsetrain_olsBIC &lt;- sqrt(mean((y_train - predict(olsBIC, train_data))^2))
+rmsetest_olsBIC &lt;- sqrt(mean((y_test - predict(olsBIC, test_data))^2))</code></pre>
+<p>Now with k-fold cross validation</p>
+<pre class="r"><code># Number of folds
+nfolds &lt;- 10
+n &lt;- nrow(train_data)
+# Create 10 equal size folds as a list of validation indexes
+folds &lt;- split(1:n, cut(1:n, breaks = nfolds, labels = FALSE))
+# Perform 10 fold cross validation
+rmse_olsBIC_cv &lt;- numeric(nfolds)
+for (k in 1:10) {
+  idx &lt;- folds[[k]]
+  mod &lt;- lm(`Concrete compressive strength` ~ ., data = train_data[-idx, ]) %&gt;% 
+    step(k = log(n), trace = FALSE)
+  rmse_olsBIC_cv[k] &lt;- sqrt(mean((y_train[idx] - predict(mod, train_data[idx, ]))^2))
+}</code></pre>
+</div>
+<div id="lasso" class="section level4">
+<h4>(3) Lasso</h4>
+<p>We use the <code>glm</code> package now, it has an elastic mixing input <code>alpha</code>, which does the lasso regression when set to <code>alpha = 1</code>.</p>
+<pre class="r"><code>lasso = cv.glmnet(X_train, y_train, alpha = 1, type.measure = &quot;mse&quot;, nfolds = 10)
+rmsetrain_lasso &lt;- sqrt(mean((predict(lasso, X_train, s = &quot;lambda.min&quot;) - y_train)^2))
+rmsetest_lasso &lt;- sqrt(mean((predict(lasso, X_test, s = &quot;lambda.min&quot;) - y_test)^2))</code></pre>
+</div>
+<div id="ridge" class="section level4">
+<h4>(4) Ridge</h4>
+<p>Setting <code>alpha = 0</code> the <code>glmnet</code> regression yields Ridge.</p>
+<pre class="r"><code>ridge = cv.glmnet(X_train, y_train, alpha = 0, type.measure = &quot;mse&quot;, nfolds = 10)
+rmsetrain_ridge &lt;- sqrt(mean((predict(ridge, X_train, s = &quot;lambda.min&quot;) - y_train)^2))
+rmsetest_ridge &lt;- sqrt(mean((predict(ridge, X_test, s = &quot;lambda.min&quot;) - y_test)^2))</code></pre>
+</div>
+<div id="elastic-net" class="section level4">
+<h4>(5) Elastic net</h4>
+<p>An elastic net interpolates the lasso and ridge regularization. By setting <code>alpha = 0.5</code> in the <code>cv.glmnet</code> function we compute an elastic net.</p>
+<pre class="r"><code>enet = cv.glmnet(X_train, y_train, alpha = 0.5, type.measure = &quot;mse&quot;, nfolds = 10)
+rmsetrain_enet &lt;- sqrt(mean((predict(enet, X_train, s = &quot;lambda.min&quot;) - y_train)^2))
+rmsetest_enet &lt;- sqrt(mean((predict(enet, X_test, s = &quot;lambda.min&quot;) - y_test)^2))</code></pre>
+</div>
+</div>
+<div id="comparison" class="section level3">
+<h3>Comparison</h3>
+<p>Here is a table with the performance of each model using the Root MSE.</p>
+<table>
+<thead>
+<tr class="header">
+<th align="left">Model</th>
+<th align="left">Training</th>
+<th align="left">10-Fold CV</th>
+<th align="left">Test</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">MLR</td>
+<td align="left">10.3315</td>
+<td align="left">-</td>
+<td align="left">10.5541</td>
+</tr>
+<tr class="even">
+<td align="left">MLR with BIC</td>
+<td align="left">10.3591</td>
+<td align="left">-</td>
+<td align="left">10.6438</td>
+</tr>
+<tr class="odd">
+<td align="left">Lasso</td>
+<td align="left">-</td>
+<td align="left">10.3320</td>
+<td align="left">10.5548</td>
+</tr>
+<tr class="even">
+<td align="left">Ridge</td>
+<td align="left">-</td>
+<td align="left">10.4821</td>
+<td align="left">10.7989</td>
+</tr>
+<tr class="odd">
+<td align="left">ElasticNet(0.5)</td>
+<td align="left">-</td>
+<td align="left">10.3321</td>
+<td align="left">10.5550</td>
+</tr>
+</tbody>
+</table>
 </div>
 </div>
 </div>
